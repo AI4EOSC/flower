@@ -63,7 +63,7 @@ def start_grpc_server(  # pylint: disable=too-many-arguments
     max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
     keepalive_time_ms: int = 210000,
     certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
-    interceptors=interceptors
+    interceptors: Optional[List[grpc.ServerInterceptor]] = None
 ) -> grpc.Server:
     """Create and start a gRPC server running FlowerServiceServicer.
 
