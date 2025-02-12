@@ -56,6 +56,7 @@ __all__ = [
     "DifferentialPrivacyClientSideFixedClipping",
     "DifferentialPrivacyServerSideAdaptiveClipping",
     "DifferentialPrivacyServerSideFixedClipping",
+    "MetricDifferentialPrivacyServerSideFixedClipping",
     "FaultTolerantFedAvg",
     "FedAdagrad",
     "FedAdam",
