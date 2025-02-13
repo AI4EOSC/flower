@@ -14,6 +14,7 @@
 # ==============================================================================
 """Flower command line interface `example` command."""
 
+
 import json
 import os
 import subprocess
@@ -39,7 +40,9 @@ def example() -> None:
     with urllib.request.urlopen(examples_directory_url) as res:
         data = json.load(res)
         example_names = [
-            item["path"] for item in data["tree"] if item["path"] not in [".gitignore"]
+            item["path"]
+            for item in data["tree"]
+            if item["path"] not in [".gitignore", "doc"]
         ]
 
     example_name = prompt_options(

@@ -1,4 +1,4 @@
-# Copyright 2020 Flower Labs GmbH. All Rights Reserved.
+# Copyright 2024 Flower Labs GmbH. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,36 +15,24 @@
 """Flower ClientProxy implementation for Driver API."""
 
 
-import time
-from typing import List, Optional
+from typing import Optional
 
 from flwr import common
-from flwr.common import RecordSet
+from flwr.common import Message, MessageType, MessageTypeLegacy, RecordSet
 from flwr.common import recordset_compat as compat
-from flwr.common import serde
-from flwr.common.constant import (
-    MESSAGE_TYPE_EVALUATE,
-    MESSAGE_TYPE_FIT,
-    MESSAGE_TYPE_GET_PARAMETERS,
-    MESSAGE_TYPE_GET_PROPERTIES,
-)
-from flwr.proto import driver_pb2, node_pb2, task_pb2  # pylint: disable=E0611
 from flwr.server.client_proxy import ClientProxy
 
-from ..driver.grpc_driver import GrpcDriver
-
-SLEEP_TIME = 1
+from ..driver.driver import Driver
 
 
 class DriverClientProxy(ClientProxy):
     """Flower client proxy which delegates work using the Driver API."""
 
-    def __init__(self, node_id: int, driver: GrpcDriver, anonymous: bool, run_id: int):
+    def __init__(self, node_id: int, driver: Driver, run_id: int):
         super().__init__(str(node_id))
         self.node_id = node_id
         self.driver = driver
         self.run_id = run_id
-        self.anonymous = anonymous
 
     def get_properties(
         self,
@@ -57,7 +45,7 @@ class DriverClientProxy(ClientProxy):
         out_recordset = compat.getpropertiesins_to_recordset(ins)
         # Fetch response
         in_recordset = self._send_receive_recordset(
-            out_recordset, MESSAGE_TYPE_GET_PROPERTIES, timeout, group_id
+            out_recordset, MessageTypeLegacy.GET_PROPERTIES, timeout, group_id
         )
         # RecordSet to Res
         return compat.recordset_to_getpropertiesres(in_recordset)
@@ -73,7 +61,7 @@ class DriverClientProxy(ClientProxy):
         out_recordset = compat.getparametersins_to_recordset(ins)
         # Fetch response
         in_recordset = self._send_receive_recordset(
-            out_recordset, MESSAGE_TYPE_GET_PARAMETERS, timeout, group_id
+            out_recordset, MessageTypeLegacy.GET_PARAMETERS, timeout, group_id
         )
         # RecordSet to Res
         return compat.recordset_to_getparametersres(in_recordset, False)
@@ -86,7 +74,7 @@ class DriverClientProxy(ClientProxy):
         out_recordset = compat.fitins_to_recordset(ins, keep_input=True)
         # Fetch response
         in_recordset = self._send_receive_recordset(
-            out_recordset, MESSAGE_TYPE_FIT, timeout, group_id
+            out_recordset, MessageType.TRAIN, timeout, group_id
         )
         # RecordSet to Res
         return compat.recordset_to_fitres(in_recordset, keep_input=False)
@@ -99,7 +87,7 @@ class DriverClientProxy(ClientProxy):
         out_recordset = compat.evaluateins_to_recordset(ins, keep_input=True)
         # Fetch response
         in_recordset = self._send_receive_recordset(
-            out_recordset, MESSAGE_TYPE_EVALUATE, timeout, group_id
+            out_recordset, MessageType.EVALUATE, timeout, group_id
         )
         # RecordSet to Res
         return compat.recordset_to_evaluateres(in_recordset)
@@ -120,56 +108,28 @@ class DriverClientProxy(ClientProxy):
         timeout: Optional[float],
         group_id: Optional[int],
     ) -> RecordSet:
-        task_ins = task_pb2.TaskIns(  # pylint: disable=E1101
-            task_id="",
-            group_id=str(group_id) if group_id is not None else "",
-            run_id=self.run_id,
-            task=task_pb2.Task(  # pylint: disable=E1101
-                producer=node_pb2.Node(  # pylint: disable=E1101
-                    node_id=0,
-                    anonymous=True,
-                ),
-                consumer=node_pb2.Node(  # pylint: disable=E1101
-                    node_id=self.node_id,
-                    anonymous=self.anonymous,
-                ),
-                task_type=task_type,
-                recordset=serde.recordset_to_proto(recordset),
-            ),
-        )
-        push_task_ins_req = driver_pb2.PushTaskInsRequest(  # pylint: disable=E1101
-            task_ins_list=[task_ins]
+
+        # Create message
+        message = self.driver.create_message(
+            content=recordset,
+            message_type=task_type,
+            dst_node_id=self.node_id,
+            group_id=str(group_id) if group_id else "",
+            ttl=timeout,
         )
 
-        # Send TaskIns to Driver API
-        push_task_ins_res = self.driver.push_task_ins(req=push_task_ins_req)
+        # Send message and wait for reply
+        messages = list(self.driver.send_and_receive(messages=[message]))
 
-        if len(push_task_ins_res.task_ids) != 1:
-            raise ValueError("Unexpected number of task_ids")
+        # A single reply is expected
+        if len(messages) != 1:
+            raise ValueError(f"Expected one Message but got: {len(messages)}")
 
-        task_id = push_task_ins_res.task_ids[0]
-        if task_id == "":
-            raise ValueError(f"Failed to schedule task for node {self.node_id}")
-
-        if timeout:
-            start_time = time.time()
-
-        while True:
-            pull_task_res_req = driver_pb2.PullTaskResRequest(  # pylint: disable=E1101
-                node=node_pb2.Node(node_id=0, anonymous=True),  # pylint: disable=E1101
-                task_ids=[task_id],
+        # Only messages without errors can be handled beyond these point
+        msg: Message = messages[0]
+        if msg.has_error():
+            raise ValueError(
+                f"Message contains an Error (reason: {msg.error.reason}). "
+                "It originated during client-side execution of a message."
             )
-
-            # Ask Driver API for TaskRes
-            pull_task_res_res = self.driver.pull_task_res(req=pull_task_res_req)
-
-            task_res_list: List[task_pb2.TaskRes] = list(  # pylint: disable=E1101
-                pull_task_res_res.task_res_list
-            )
-            if len(task_res_list) == 1:
-                task_res = task_res_list[0]
-                return serde.recordset_from_proto(task_res.task.recordset)
-
-            if timeout is not None and time.time() > start_time + timeout:
-                raise RuntimeError("Timeout reached")
-            time.sleep(SLEEP_TIME)
+        return msg.content

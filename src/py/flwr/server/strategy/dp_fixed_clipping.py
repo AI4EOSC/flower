@@ -18,8 +18,8 @@ Papers: https://arxiv.org/abs/1712.07557, https://arxiv.org/abs/1710.06963
 """
 
 
-from logging import WARNING
-from typing import Dict, List, Optional, Tuple, Union
+from logging import INFO, WARNING
+from typing import Optional, Union
 
 from flwr.common import (
     EvaluateIns,
@@ -35,6 +35,7 @@ from flwr.common import (
 from flwr.common.differential_privacy import (
     add_gaussian_noise_to_params,
     compute_clip_model_update,
+    compute_stdv,
 )
 from flwr.common.differential_privacy_constants import (
     CLIENTS_DISCREPANCY_WARNING,
@@ -47,8 +48,7 @@ from flwr.server.strategy.strategy import Strategy
 
 
 class DifferentialPrivacyServerSideFixedClipping(Strategy):
-    """Strategy wrapper for central differential privacy with server-side fixed
-    clipping.
+    """Strategy wrapper for central DP with server-side fixed clipping.
 
     Parameters
     ----------
@@ -117,14 +117,14 @@ class DifferentialPrivacyServerSideFixedClipping(Strategy):
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, FitIns]]:
+    ) -> list[tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
         self.current_round_params = parameters_to_ndarrays(parameters)
         return self.strategy.configure_fit(server_round, parameters, client_manager)
 
     def configure_evaluate(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+    ) -> list[tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         return self.strategy.configure_evaluate(
             server_round, parameters, client_manager
@@ -133,9 +133,9 @@ class DifferentialPrivacyServerSideFixedClipping(Strategy):
     def aggregate_fit(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, FitRes]],
+        failures: list[Union[tuple[ClientProxy, FitRes], BaseException]],
+    ) -> tuple[Optional[Parameters], dict[str, Scalar]]:
         """Compute the updates, clip, and pass them for aggregation.
 
         Afterward, add noise to the aggregated parameters.
@@ -156,6 +156,11 @@ class DifferentialPrivacyServerSideFixedClipping(Strategy):
             compute_clip_model_update(
                 param, self.current_round_params, self.clipping_norm
             )
+            log(
+                INFO,
+                "aggregate_fit: parameters are clipped by value: %.4f.",
+                self.clipping_norm,
+            )
             # Convert back to parameters
             res.parameters = ndarrays_to_parameters(param)
 
@@ -173,34 +178,41 @@ class DifferentialPrivacyServerSideFixedClipping(Strategy):
                 self.num_sampled_clients,
             )
 
+            log(
+                INFO,
+                "aggregate_fit: central DP noise with %.4f stdev added",
+                compute_stdv(
+                    self.noise_multiplier, self.clipping_norm, self.num_sampled_clients
+                ),
+            )
+
         return aggregated_params, metrics
 
     def aggregate_evaluate(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, EvaluateRes]],
-        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
-    ) -> Tuple[Optional[float], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, EvaluateRes]],
+        failures: list[Union[tuple[ClientProxy, EvaluateRes], BaseException]],
+    ) -> tuple[Optional[float], dict[str, Scalar]]:
         """Aggregate evaluation losses using the given strategy."""
         return self.strategy.aggregate_evaluate(server_round, results, failures)
 
     def evaluate(
         self, server_round: int, parameters: Parameters
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+    ) -> Optional[tuple[float, dict[str, Scalar]]]:
         """Evaluate model parameters using an evaluation function from the strategy."""
         return self.strategy.evaluate(server_round, parameters)
 
 
 class DifferentialPrivacyClientSideFixedClipping(Strategy):
-    """Strategy wrapper for central differential privacy with client-side fixed
-    clipping.
+    """Strategy wrapper for central DP with client-side fixed clipping.
 
     Use `fixedclipping_mod` modifier at the client side.
 
     In comparison to `DifferentialPrivacyServerSideFixedClipping`,
     which performs clipping on the server-side, `DifferentialPrivacyClientSideFixedClipping`
     expects clipping to happen on the client-side, usually by using the built-in
-    `fixedclipping_mod `.
+    `fixedclipping_mod`.
 
     Parameters
     ----------
@@ -220,16 +232,16 @@ class DifferentialPrivacyClientSideFixedClipping(Strategy):
 
     >>> strategy = fl.server.strategy.FedAvg(...)
 
-    Wrap the strategy with the `DifferentialPrivacyServerSideFixedClipping` wrapper:
+    Wrap the strategy with the `DifferentialPrivacyClientSideFixedClipping` wrapper:
 
-    >>> DifferentialPrivacyClientSideFixedClipping(
+    >>> dp_strategy = DifferentialPrivacyClientSideFixedClipping(
     >>>     strategy, cfg.noise_multiplier, cfg.clipping_norm, cfg.num_sampled_clients
     >>> )
 
     On the client, add the `fixedclipping_mod` to the client-side mods:
 
     >>> app = fl.client.ClientApp(
-    >>>     client_fn=FlowerClient().to_client(), mods=[fixedclipping_mod]
+    >>>     client_fn=client_fn, mods=[fixedclipping_mod]
     >>> )
     """
 
@@ -273,7 +285,7 @@ class DifferentialPrivacyClientSideFixedClipping(Strategy):
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, FitIns]]:
+    ) -> list[tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
         additional_config = {KEY_CLIPPING_NORM: self.clipping_norm}
         inner_strategy_config_result = self.strategy.configure_fit(
@@ -286,7 +298,7 @@ class DifferentialPrivacyClientSideFixedClipping(Strategy):
 
     def configure_evaluate(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+    ) -> list[tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         return self.strategy.configure_evaluate(
             server_round, parameters, client_manager
@@ -295,9 +307,9 @@ class DifferentialPrivacyClientSideFixedClipping(Strategy):
     def aggregate_fit(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-    ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, FitRes]],
+        failures: list[Union[tuple[ClientProxy, FitRes], BaseException]],
+    ) -> tuple[Optional[Parameters], dict[str, Scalar]]:
         """Add noise to the aggregated parameters."""
         if failures:
             return None, {}
@@ -323,19 +335,27 @@ class DifferentialPrivacyClientSideFixedClipping(Strategy):
                 self.clipping_norm,
                 self.num_sampled_clients,
             )
+            log(
+                INFO,
+                "aggregate_fit: central DP noise with %.4f stdev added",
+                compute_stdv(
+                    self.noise_multiplier, self.clipping_norm, self.num_sampled_clients
+                ),
+            )
+
         return aggregated_params, metrics
 
     def aggregate_evaluate(
         self,
         server_round: int,
-        results: List[Tuple[ClientProxy, EvaluateRes]],
-        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
-    ) -> Tuple[Optional[float], Dict[str, Scalar]]:
+        results: list[tuple[ClientProxy, EvaluateRes]],
+        failures: list[Union[tuple[ClientProxy, EvaluateRes], BaseException]],
+    ) -> tuple[Optional[float], dict[str, Scalar]]:
         """Aggregate evaluation losses using the given strategy."""
         return self.strategy.aggregate_evaluate(server_round, results, failures)
 
     def evaluate(
         self, server_round: int, parameters: Parameters
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+    ) -> Optional[tuple[float, dict[str, Scalar]]]:
         """Evaluate model parameters using an evaluation function from the strategy."""
         return self.strategy.evaluate(server_round, parameters)

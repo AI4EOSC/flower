@@ -1,4 +1,4 @@
-# Copyright 2020 Flower Labs GmbH. All Rights Reserved.
+# Copyright 2022 Flower Labs GmbH. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,15 @@
 """Client-side message handler tests."""
 
 
+import time
 import unittest
 import uuid
 from copy import copy
-from typing import List
 
 from flwr.client import Client
-from flwr.client.typing import ClientFn
+from flwr.client.typing import ClientFnExt
 from flwr.common import (
+    DEFAULT_TTL,
     Code,
     Context,
     EvaluateIns,
@@ -41,7 +42,7 @@ from flwr.common import (
 )
 from flwr.common import recordset_compat as compat
 from flwr.common import typing
-from flwr.common.constant import MESSAGE_TYPE_GET_PROPERTIES
+from flwr.common.constant import MessageTypeLegacy
 
 from .message_handler import handle_legacy_message_from_msgtype, validate_out_message
 
@@ -111,8 +112,8 @@ class ClientWithProps(Client):
         )
 
 
-def _get_client_fn(client: Client) -> ClientFn:
-    def client_fn(cid: str) -> Client:  # pylint: disable=unused-argument
+def _get_client_fn(client: Client) -> ClientFnExt:
+    def client_fn(contex: Context) -> Client:  # pylint: disable=unused-argument
         return client
 
     return client_fn
@@ -131,8 +132,8 @@ def test_client_without_get_properties() -> None:
             src_node_id=0,
             dst_node_id=1123,
             reply_to_message="",
-            ttl="",
-            message_type=MESSAGE_TYPE_GET_PROPERTIES,
+            ttl=DEFAULT_TTL,
+            message_type=MessageTypeLegacy.GET_PROPERTIES,
         ),
         content=recordset,
     )
@@ -141,7 +142,9 @@ def test_client_without_get_properties() -> None:
     actual_msg = handle_legacy_message_from_msgtype(
         client_fn=_get_client_fn(client),
         message=message,
-        context=Context(state=RecordSet()),
+        context=Context(
+            run_id=2234, node_id=1123, node_config={}, state=RecordSet(), run_config={}
+        ),
     )
 
     # Assert
@@ -161,14 +164,25 @@ def test_client_without_get_properties() -> None:
             src_node_id=1123,
             dst_node_id=0,
             reply_to_message=message.metadata.message_id,
-            ttl="",
-            message_type=MESSAGE_TYPE_GET_PROPERTIES,
+            ttl=actual_msg.metadata.ttl,  # computed based on [message].create_reply()
+            message_type=MessageTypeLegacy.GET_PROPERTIES,
         ),
         content=expected_rs,
     )
 
     assert actual_msg.content == expected_msg.content
-    assert actual_msg.metadata == expected_msg.metadata
+    # metadata.created_at will differ so let's exclude it from checks
+    attrs = vars(actual_msg.metadata)
+    attrs_keys = list(attrs.keys())
+    attrs_keys.remove("_created_at")
+    # metadata.created_at will differ so let's exclude it from checks
+    for attr in attrs_keys:
+        assert getattr(actual_msg.metadata, attr) == getattr(
+            expected_msg.metadata, attr
+        )
+
+    # Ensure the message created last has a higher timestamp
+    assert actual_msg.metadata.created_at < expected_msg.metadata.created_at
 
 
 def test_client_with_get_properties() -> None:
@@ -184,8 +198,8 @@ def test_client_with_get_properties() -> None:
             src_node_id=0,
             dst_node_id=1123,
             reply_to_message="",
-            ttl="",
-            message_type=MESSAGE_TYPE_GET_PROPERTIES,
+            ttl=DEFAULT_TTL,
+            message_type=MessageTypeLegacy.GET_PROPERTIES,
         ),
         content=recordset,
     )
@@ -194,7 +208,9 @@ def test_client_with_get_properties() -> None:
     actual_msg = handle_legacy_message_from_msgtype(
         client_fn=_get_client_fn(client),
         message=message,
-        context=Context(state=RecordSet()),
+        context=Context(
+            run_id=2234, node_id=1123, node_config={}, state=RecordSet(), run_config={}
+        ),
     )
 
     # Assert
@@ -214,14 +230,24 @@ def test_client_with_get_properties() -> None:
             src_node_id=1123,
             dst_node_id=0,
             reply_to_message=message.metadata.message_id,
-            ttl="",
-            message_type=MESSAGE_TYPE_GET_PROPERTIES,
+            ttl=actual_msg.metadata.ttl,  # computed based on [message].create_reply()
+            message_type=MessageTypeLegacy.GET_PROPERTIES,
         ),
         content=expected_rs,
     )
 
     assert actual_msg.content == expected_msg.content
-    assert actual_msg.metadata == expected_msg.metadata
+    attrs = vars(actual_msg.metadata)
+    attrs_keys = list(attrs.keys())
+    attrs_keys.remove("_created_at")
+    # metadata.created_at will differ so let's exclude it from checks
+    for attr in attrs_keys:
+        assert getattr(actual_msg.metadata, attr) == getattr(
+            expected_msg.metadata, attr
+        )
+
+    # Ensure the message created last has a higher timestamp
+    assert actual_msg.metadata.created_at < expected_msg.metadata.created_at
 
 
 class TestMessageValidation(unittest.TestCase):
@@ -237,9 +263,14 @@ class TestMessageValidation(unittest.TestCase):
             dst_node_id=20,
             reply_to_message="",
             group_id="group1",
-            ttl="60",
+            ttl=DEFAULT_TTL,
             message_type="mock",
         )
+        # We need to set created_at in this way
+        # since this `self.in_metadata` is used for tests
+        # without it ever being part of a Message
+        self.in_metadata.created_at = time.time()
+
         self.valid_out_metadata = Metadata(
             run_id=123,
             message_id="",
@@ -247,7 +278,7 @@ class TestMessageValidation(unittest.TestCase):
             dst_node_id=10,
             reply_to_message="qwerty",
             group_id="group1",
-            ttl="60",
+            ttl=DEFAULT_TTL,
             message_type="mock",
         )
         self.common_content = RecordSet()
@@ -266,7 +297,7 @@ class TestMessageValidation(unittest.TestCase):
         msg = Message(metadata=self.valid_out_metadata, content=RecordSet())
 
         # Execute
-        invalid_metadata_list: List[Metadata] = []
+        invalid_metadata_list: list[Metadata] = []
         attrs = list(vars(self.valid_out_metadata).keys())
         for attr in attrs:
             if attr == "_partition_id":
@@ -280,11 +311,15 @@ class TestMessageValidation(unittest.TestCase):
                 value = 999
             elif isinstance(value, str):
                 value = "999"
+            elif isinstance(value, float):
+                if attr == "_created_at":
+                    # make it be in 1h the past
+                    value = value - 3600
             setattr(invalid_metadata, attr, value)
             # Add to list
             invalid_metadata_list.append(invalid_metadata)
 
         # Assert
         for invalid_metadata in invalid_metadata_list:
-            msg._metadata = invalid_metadata  # pylint: disable=protected-access
+            msg.__dict__["_metadata"] = invalid_metadata
             self.assertFalse(validate_out_message(msg, self.in_metadata))

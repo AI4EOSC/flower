@@ -1,4 +1,4 @@
-# Copyright 2020 Flower Labs GmbH. All Rights Reserved.
+# Copyright 2024 Flower Labs GmbH. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,43 +20,22 @@ import secrets
 import sys
 from logging import ERROR
 from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Optional
 
 import grpc
 
 from flwr.common import GRPC_MAX_MESSAGE_LENGTH
-from flwr.common.logger import log
+from flwr.common.grpc import generic_create_grpc_server
 from flwr.proto.transport_pb2_grpc import (  # pylint: disable=E0611
     add_FlowerServiceServicer_to_server,
 )
 from flwr.server.client_manager import ClientManager
-from flwr.server.superlink.driver.driver_servicer import DriverServicer
 from flwr.server.superlink.fleet.grpc_bidi.flower_service_servicer import (
     FlowerServiceServicer,
 )
-from flwr.server.superlink.fleet.grpc_rere.fleet_servicer import FleetServicer
-
-INVALID_CERTIFICATES_ERR_MSG = """
-    When setting any of root_certificate, certificate, or private_key,
-    all of them need to be set.
-"""
-
-AddServicerToServerFn = Callable[..., Any]
 
 
-def valid_certificates(certificates: Tuple[bytes, bytes, bytes]) -> bool:
-    """Validate certificates tuple."""
-    is_valid = (
-        all(isinstance(certificate, bytes) for certificate in certificates)
-        and len(certificates) == 3
-    )
-
-    if not is_valid:
-        log(ERROR, INVALID_CERTIFICATES_ERR_MSG)
-
-    return is_valid
-
-
-def start_grpc_server(  # pylint: disable=too-many-arguments
+def start_grpc_server(  # pylint: disable=too-many-arguments,R0917
     client_manager: ClientManager,
     server_address: str,
     max_concurrent_workers: int = 1000,
@@ -64,6 +43,7 @@ def start_grpc_server(  # pylint: disable=too-many-arguments
     keepalive_time_ms: int = 210000,
     certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
     interceptors: Optional[List[grpc.ServerInterceptor]] = None
+    certificates: Optional[tuple[bytes, bytes, bytes]] = None,
 ) -> grpc.Server:
     """Create and start a gRPC server running FlowerServiceServicer.
 
@@ -286,3 +266,4 @@ def generic_create_grpc_server(  # pylint: disable=too-many-arguments
         server.add_insecure_port(server_address)
 
     return server
+

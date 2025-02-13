@@ -1,4 +1,4 @@
-# Copyright 2023 Flower Labs GmbH. All Rights Reserved.
+# Copyright 2024 Flower Labs GmbH. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
 """Secure Aggregation mods."""
 
 
+from .secagg_mod import secagg_mod
 from .secaggplus_mod import secaggplus_mod
 
 __all__ = [
+    "secagg_mod",
     "secaggplus_mod",
 ]

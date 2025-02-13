@@ -16,8 +16,8 @@
 
 
 import threading
-import time
-from typing import Dict, Tuple
+
+from flwr.common.typing import RunNotRunningException
 
 from ..client_manager import ClientManager
 from ..compat.driver_client_proxy import DriverClientProxy
@@ -27,7 +27,7 @@ from ..driver import Driver
 def start_update_client_manager_thread(
     driver: Driver,
     client_manager: ClientManager,
-) -> Tuple[threading.Thread, threading.Event]:
+) -> tuple[threading.Thread, threading.Event]:
     """Periodically update the nodes list in the client manager in a thread.
 
     This function starts a thread that periodically uses the associated driver to
@@ -60,6 +60,7 @@ def start_update_client_manager_thread(
             client_manager,
             f_stop,
         ),
+        daemon=True,
     )
     thread.start()
 
@@ -73,9 +74,13 @@ def _update_client_manager(
 ) -> None:
     """Update the nodes list in the client manager."""
     # Loop until the driver is disconnected
-    registered_nodes: Dict[int, DriverClientProxy] = {}
+    registered_nodes: dict[int, DriverClientProxy] = {}
     while not f_stop.is_set():
-        all_node_ids = set(driver.get_node_ids())
+        try:
+            all_node_ids = set(driver.get_node_ids())
+        except RunNotRunningException:
+            f_stop.set()
+            break
         dead_nodes = set(registered_nodes).difference(all_node_ids)
         new_nodes = all_node_ids.difference(registered_nodes)
 
@@ -89,9 +94,8 @@ def _update_client_manager(
         for node_id in new_nodes:
             client_proxy = DriverClientProxy(
                 node_id=node_id,
-                driver=driver.grpc_driver,  # type: ignore
-                anonymous=False,
-                run_id=driver.run_id,  # type: ignore
+                driver=driver,
+                run_id=driver.run.run_id,
             )
             if client_manager.register(client_proxy):
                 registered_nodes[node_id] = client_proxy
@@ -99,4 +103,5 @@ def _update_client_manager(
                 raise RuntimeError("Could not register node.")
 
         # Sleep for 3 seconds
-        time.sleep(3)
+        if not f_stop.is_set():
+            f_stop.wait(3)

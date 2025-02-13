@@ -1,67 +1,40 @@
-# Flower App (PyTorch) 🧪
+---
+tags: [basic, vision]
+dataset: [CIFAR-10]
+framework: [torch]
+---
 
-> 🧪 = This example covers experimental features that might change in future versions of Flower
-> Please consult the regular PyTorch code examples ([quickstart](https://github.com/adap/flower/tree/main/examples/quickstart-pytorch), [advanced](https://github.com/adap/flower/tree/main/examples/advanced-pytorch)) to learn how to use Flower with PyTorch.
+# app-pytorch: A Flower / PyTorch app
 
-The following steps describe how to start a long-running Flower server (SuperLink) and then run a Flower App (consisting of a `ClientApp` and a `ServerApp`).
+> \[!NOTE\]
+> This example is a playground for upcoming features.
 
-## Preconditions
-
-Let's assume the following project structure:
-
-```bash
-$ tree .
-.
-├── client.py           # <-- contains `ClientApp`
-├── server.py           # <-- contains `ServerApp`
-├── server_workflow.py  # <-- contains `ServerApp` with workflow
-├── server_custom.py    # <-- contains `ServerApp` with custom main function
-├── task.py             # <-- task-specific code (model, data)
-└── requirements.txt    # <-- dependencies
-```
-
-## Install dependencies
+## Install dependencies and project
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
-## Start the long-running Flower server (SuperLink)
+## Run with the Simulation Engine
+
+In the `app-pytorch` directory, use `flwr run` to run a local simulation:
 
 ```bash
-flower-superlink --insecure
+flwr run .
 ```
 
-## Start the long-running Flower client (SuperNode)
+Refer to the [How to Run Simulations](https://flower.ai/docs/framework/how-to-run-simulations.html) guide in the documentation for advice on how to optimize your simulations.
 
-In a new terminal window, start the first long-running Flower client:
+## Run with the Deployment Engine
 
-```bash
-flower-client-app client:app --insecure
-```
+> \[!NOTE\]
+> An update to this example will show how to run this Flower application with the Deployment Engine and TLS certificates, or with Docker.
 
-In yet another new terminal window, start the second long-running Flower client:
+## Resources
 
-```bash
-flower-client-app client:app --insecure
-```
-
-## Run the Flower App
-
-With both the long-running server (SuperLink) and two clients (SuperNode) up and running, we can now run the actual Flower App:
-
-```bash
-flower-server-app server:app --insecure
-```
-
-Or, to try the workflow example, run:
-
-```bash
-flower-server-app server_workflow:app --insecure
-```
-
-Or, to try the custom server function example, run:
-
-```bash
-flower-server-app server_custom:app --insecure
-```
+- Flower website: [flower.ai](https://flower.ai/)
+- Check the documentation: [flower.ai/docs](https://flower.ai/docs/)
+- Give Flower a ⭐️ on GitHub: [GitHub](https://github.com/adap/flower)
+- Join the Flower community!
+  - [Flower Slack](https://flower.ai/join-slack/)
+  - [Flower Discuss](https://discuss.flower.ai/)
