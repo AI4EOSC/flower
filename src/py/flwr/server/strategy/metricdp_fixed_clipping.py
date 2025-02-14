@@ -35,14 +35,14 @@ from flwr.server.strategy.strategy import Strategy
 
 
 class MetricDifferentialPrivacyServerSideFixedClipping(Strategy):
-    """Strategy wrapper for central DP with server-side fixed clipping.
+    """Strategy wrapper for metric privacy with server-side fixed clipping.
 
     Parameters
     ----------
     strategy : Strategy
-        The strategy to which DP functionalities will be added by this wrapper.
+        The strategy to which the metric privacy method will be added by this wrapper.
     noise_multiplier : float
-        The noise multiplier for the Gaussian mechanism for model updates.
+        The noise multiplier for the Gaussian mechanism for model updates (divided by the distance).
         A value of 1.0 or higher is recommended for strong privacy.
     clipping_norm : float
         The value of the clipping norm.
@@ -93,7 +93,7 @@ class MetricDifferentialPrivacyServerSideFixedClipping(Strategy):
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
-        rep = "Differential Privacy Strategy Wrapper (Server-Side Fixed Clipping)"
+        rep = "Metric Privacy Strategy Wrapper (Server-Side Fixed Clipping)"
         return rep
 
     def initialize_parameters(
@@ -192,7 +192,7 @@ class MetricDifferentialPrivacyServerSideFixedClipping(Strategy):
 
             log(
                 INFO,
-                "aggregate_fit: central DP noise with %.4f stdev added",
+                "aggregate_fit: metric privacy noise with %.4f stdev added",
                 compute_stdv(
                     self.noise_multiplier/d, self.clipping_norm, self.num_sampled_clients
                 ),
