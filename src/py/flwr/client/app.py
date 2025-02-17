@@ -213,7 +213,7 @@ def start_client(
         root_certificates=root_certificates,
         insecure=insecure,
         transport=transport,
-        call_credentials=call_credentials
+        call_credentials=call_credentials,
         authentication_keys=authentication_keys,
         max_retries=max_retries,
         max_wait_time=max_wait_time,
@@ -236,7 +236,7 @@ def start_client_internal(
     root_certificates: Optional[Union[bytes, str]] = None,
     insecure: Optional[bool] = None,
     transport: Optional[str] = None,
-    call_credentials: Optional[object] = None
+    call_credentials: Optional[object] = None,
     authentication_keys: Optional[
         tuple[ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey]
     ] = None,
@@ -411,7 +411,7 @@ def start_client_internal(
             retry_invoker,
             grpc_max_message_length,
             root_certificates,
-            call_credentials=call_credentials
+            call_credentials=call_credentials,
             authentication_keys,
         ) as conn:
             receive, send, create_node, delete_node, get_run, get_fab = conn
@@ -750,7 +750,7 @@ def start_numpy_client(
         root_certificates=root_certificates,
         insecure=insecure,
         transport=transport,
-        call_credentials=call_credentials
+        call_credentials=call_credentials,
     )
 
 
