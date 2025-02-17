@@ -22,6 +22,7 @@ from logging import ERROR
 from collections.abc import Sequence
 from typing import Any, Callable, List, Optional, Tuple, Union
 from typing import Optional
+from .address import is_port_in_use
 
 import grpc
 
