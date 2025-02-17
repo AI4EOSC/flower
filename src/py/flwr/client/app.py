@@ -411,7 +411,7 @@ def start_client_internal(
             retry_invoker,
             grpc_max_message_length,
             root_certificates,
-            call_credentials=call_credentials,
+            call_credentials,
             authentication_keys,
         ) as conn:
             receive, send, create_node, delete_node, get_run, get_fab = conn
