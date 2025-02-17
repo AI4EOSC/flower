@@ -22,7 +22,8 @@ from logging import ERROR
 from collections.abc import Sequence
 from typing import Any, Callable, List, Optional, Tuple, Union
 from typing import Optional
-from .address import is_port_in_use
+from flwr.common import GRPC_MAX_MESSAGE_LENGTH
+from flwr.common.address import is_port_in_use
 
 import grpc
 
