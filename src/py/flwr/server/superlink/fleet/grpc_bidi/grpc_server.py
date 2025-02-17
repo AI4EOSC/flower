@@ -136,24 +136,20 @@ def start_grpc_server(  # pylint: disable=too-many-arguments,R0917
     return server
 
 
-def generic_create_grpc_server(  # pylint: disable=too-many-arguments
-    servicer_and_add_fn: Union[
-        Tuple[FleetServicer, AddServicerToServerFn],
-        Tuple[FlowerServiceServicer, AddServicerToServerFn],
-        Tuple[DriverServicer, AddServicerToServerFn],
-    ],
+def generic_create_grpc_server(  # pylint: disable=too-many-arguments,R0917
+    servicer_and_add_fn: tuple[Any, AddServicerToServerFn],
     server_address: str,
     max_concurrent_workers: int = 1000,
     max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
     keepalive_time_ms: int = 210000,
-    certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
-    interceptors: Optional[List[grpc.ServerInterceptor]] = None,
+    certificates: Optional[tuple[bytes, bytes, bytes]] = None,
+    interceptors: Optional[Sequence[grpc.ServerInterceptor]] = None,
 ) -> grpc.Server:
     """Create a gRPC server with a single servicer.
 
     Parameters
     ----------
-    servicer_and_add_fn : Tuple
+    servicer_and_add_fn : tuple
         A tuple holding a servicer implementation and a matching
         add_Servicer_to_server function.
     server_address : str
@@ -193,17 +189,18 @@ def generic_create_grpc_server(  # pylint: disable=too-many-arguments
             * CA certificate.
             * server certificate.
             * server private key.
-
-    interceptors: List[grpc.ServerInterceptor] (default: None)
-        Tuple containing gRPC server interceptors. The tuple is expected to have
-        one or more grpc.ServerInterceptor elements.
-
+    interceptors : Optional[Sequence[grpc.ServerInterceptor]] (default: None)
+        A list of gRPC interceptors.
 
     Returns
     -------
     server : grpc.Server
         A non-running instance of a gRPC server.
     """
+    # Check if port is in use
+    if is_port_in_use(server_address):
+        sys.exit(f"Port in server address {server_address} is already in use.")
+
     # Deconstruct tuple into servicer and function
     servicer, add_servicer_to_server_fn = servicer_and_add_fn
 
@@ -265,4 +262,5 @@ def generic_create_grpc_server(  # pylint: disable=too-many-arguments
         server.add_insecure_port(server_address)
 
     return server
+    
 
