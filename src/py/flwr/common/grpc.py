@@ -48,7 +48,7 @@ def create_channel(
     insecure: bool,
     root_certificates: Optional[bytes] = None,
     max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
-    call_credentials: Optional[grpc.ChannelCredentials] = None
+    call_credentials: Optional[grpc.ChannelCredentials] = None,
     interceptors: Optional[Sequence[grpc.UnaryUnaryClientInterceptor]] = None,
 ) -> grpc.Channel:
     """Create a gRPC channel, either secure or insecure."""
