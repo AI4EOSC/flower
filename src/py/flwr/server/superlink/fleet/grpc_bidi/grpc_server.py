@@ -19,6 +19,7 @@ import concurrent.futures
 import secrets
 import sys
 from logging import ERROR
+from collections.abc import Sequence
 from typing import Any, Callable, List, Optional, Tuple, Union
 from typing import Optional
 
