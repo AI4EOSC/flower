@@ -55,7 +55,7 @@ def grpc_connection(  # pylint: disable=R0913,R0915,too-many-positional-argument
     retry_invoker: RetryInvoker,  # pylint: disable=unused-argument
     max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
     root_certificates: Optional[Union[bytes, str]] = None,
-    call_credentials: Optional[object] = None
+    call_credentials: Optional[object] = None,
     authentication_keys: Optional[  # pylint: disable=unused-argument
         tuple[ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey]
     ] = None,
@@ -130,7 +130,7 @@ def grpc_connection(  # pylint: disable=R0913,R0915,too-many-positional-argument
         insecure=insecure,
         root_certificates=root_certificates,
         max_message_length=max_message_length,
-        call_credentials=call_credentials
+        call_credentials=call_credentials,
     )
     channel.subscribe(on_channel_state_change)
 
