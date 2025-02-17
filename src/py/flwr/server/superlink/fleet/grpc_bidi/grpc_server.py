@@ -34,6 +34,15 @@ from flwr.server.superlink.fleet.grpc_bidi.flower_service_servicer import (
     FlowerServiceServicer,
 )
 
+GRPC_MAX_MESSAGE_LENGTH: int = 536_870_912  # == 512 * 1024 * 1024
+
+INVALID_CERTIFICATES_ERR_MSG = """
+    When setting any of root_certificate, certificate, or private_key,
+    all of them need to be set.
+"""
+
+AddServicerToServerFn = Callable[..., Any]
+
 
 def start_grpc_server(  # pylint: disable=too-many-arguments,R0917
     client_manager: ClientManager,
