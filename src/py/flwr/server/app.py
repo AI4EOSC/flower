@@ -110,7 +110,7 @@ def start_server(  # pylint: disable=too-many-arguments,too-many-locals
     strategy: Optional[Strategy] = None,
     client_manager: Optional[ClientManager] = None,
     grpc_max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
-    certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
+    certificates: Optional[tuple[bytes, bytes, bytes]] = None,
     interceptors: Optional[List[grpc.ServerInterceptor]] = None,
 ) -> History:
     """Start a Flower server using the gRPC transport layer.
@@ -147,8 +147,8 @@ def start_server(  # pylint: disable=too-many-arguments,too-many-locals
         value. Note that the Flower clients need to be started with the
         same value (see `flwr.client.start_client`), otherwise clients will
         not know about the increased limit and block larger messages.
-    certificates : Tuple[bytes, bytes, bytes] (default: None)
-        Tuple containing root certificate, server certificate, and private key
+    certificates : tuple[bytes, bytes, bytes] (default: None)
+        tuple containing root certificate, server certificate, and private key
         to start a secure SSL-enabled server. The tuple is expected to have
         three bytes elements in the following order:
 
