@@ -111,7 +111,7 @@ def start_server(  # pylint: disable=too-many-arguments,too-many-locals
     client_manager: Optional[ClientManager] = None,
     grpc_max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
     certificates: Optional[tuple[bytes, bytes, bytes]] = None,
-    interceptors: Optional[List[grpc.ServerInterceptor]] = None,
+    interceptors: Optional[list[grpc.ServerInterceptor]] = None,
 ) -> History:
     """Start a Flower server using the gRPC transport layer.
 
@@ -156,8 +156,8 @@ def start_server(  # pylint: disable=too-many-arguments,too-many-locals
             * server certificate.
             * server private key.
             
-    interceptors : List[grpc.ServerInterceptor] (default: None)
-        List of gRPC server interceptors. If no interceptors are provided,
+    interceptors : list[grpc.ServerInterceptor] (default: None)
+        list of gRPC server interceptors. If no interceptors are provided,
         then `start_server` will use the default interceptors.
 
     Returns
