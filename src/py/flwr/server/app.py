@@ -112,7 +112,6 @@ def start_server(  # pylint: disable=too-many-arguments,too-many-locals
     grpc_max_message_length: int = GRPC_MAX_MESSAGE_LENGTH,
     certificates: Optional[Tuple[bytes, bytes, bytes]] = None,
     interceptors: Optional[List[grpc.ServerInterceptor]] = None,
-    certificates: Optional[tuple[bytes, bytes, bytes]] = None,
 ) -> History:
     """Start a Flower server using the gRPC transport layer.
 
